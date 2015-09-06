@@ -22,8 +22,8 @@ void comments();
 "struct" { return STRUCT; }
 "unsigned" { return UNSIGNED; }
 
-{L}({L}|{D})* { return IDENTIFIER; }
-{D}+ { return CONSTANT; }
+{L}({L}|{D})* { yylval.string = strdup(yytext); return IDENTIFIER; }
+{D}+ { yylval.string = strdup(yytext); return CONSTANT; }
 
 ";" { return ';'; }
 "*" { return '*'; }
