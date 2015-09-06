@@ -80,6 +80,46 @@ void gen_name_list(struct var_def *v)
   println("};");
 }
 
+void gen_get_value_from_idx(char *struct_name, struct var_def *v)
+{
+  println("char *get_value_from_idx(%s *p, char *field_name, int subscript)", struct_name);
+  println("{");
+  indent++;
+  println("char buf[100];");
+  println("memset(buf, 0, sizeof(buf));");
+  struct var_def *first = v;
+  while(v != NULL) {
+    print_indent();
+    if(first != v)
+      print("else ");
+    switch(v->type) {
+      case CHAR:
+      case SHORT:
+      case INT:
+      case LONG:
+        if(v->array_size >0)
+          print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%d\", p->%s[subscript]);\n", v->name, v->name);
+        else
+          print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%d\", p->%s);\n", v->name, v->name);
+        break;
+      case FLOAT:
+      case DOUBLE:
+        if(v->array_size >0)
+          print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%f\", p->%s[subscript]);\n", v->name, v->name);
+        else
+          print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%f\", p->%s);\n", v->name, v->name);
+        break;
+      default:
+        break;
+    }
+    println("else sprintf(buf, \"\");");
+    println("return strdup(buf);");
+    v = v->next;
+  }
+  indent--;
+  println("}");
+}
+
 int main(int argc, char *argv[])
 {
   if(argc < 2) {
@@ -92,6 +132,7 @@ int main(int argc, char *argv[])
   struct struct_def *s = head;
   while(s != NULL) {
     gen_name_list(s->head);
+    gen_get_value_from_idx(s->name, s->head);
     s = s->next;
   }
   printf("%s", buffer);
