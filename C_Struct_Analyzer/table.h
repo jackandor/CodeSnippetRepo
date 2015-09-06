@@ -1,4 +1,4 @@
-#include "grammar.tab.h"
+#include "y.tab.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,6 +17,9 @@ struct struct_def {
   struct var_def *head;
   struct struct_def *next;
 };
+
+extern struct var_def *alloc_var_def();
+extern struct struct_def *alloc_struct_def();
 
 extern struct struct_def *head;
 #ifdef __cplusplus

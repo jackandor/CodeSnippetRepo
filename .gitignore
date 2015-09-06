@@ -1,0 +1,6 @@
+*.o
+C_Struct_Analyzer/analyzer
+C_Struct_Analyzer/lex.yy.c
+C_Struct_Analyzer/y.output
+C_Struct_Analyzer/y.tab.c
+C_Struct_Analyzer/y.tab.h

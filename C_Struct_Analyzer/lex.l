@@ -3,7 +3,7 @@ L [a-zA-Z_]
 
 %{
 #include <stdio.h>
-#include "grammar.tab.h"
+#include "y.tab.h"
 
 void comments();
 %}

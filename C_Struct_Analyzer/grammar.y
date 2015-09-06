@@ -1,8 +1,10 @@
 %{
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "table.h"
 
+extern int yylex (void);
 void yyerror(const char *s);
 %}
 
