@@ -8,6 +8,7 @@ C_Struct_Analyzer/grammar.tab.c
 C_Struct_Analyzer/y.tab.h
 C_Struct_Analyzer/grammar.tab.h
 C_Struct_Analyzer/Debug
+*.sln
 *.opensdf
 *.sdf
 *.suo
