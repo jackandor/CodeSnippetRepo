@@ -1,4 +1,8 @@
+#ifdef WIN32
+#include "grammar.tab.h"
+#else
 #include "y.tab.h"
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif

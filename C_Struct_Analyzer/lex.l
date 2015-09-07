@@ -3,9 +3,16 @@ L [a-zA-Z_]
 
 %{
 #include <stdio.h>
+#include <string.h>
+
+#ifdef WIN32
+#include "grammar.tab.h"
+#else
 #include "y.tab.h"
+#endif
 
 void comments();
+
 %}
 
 %%

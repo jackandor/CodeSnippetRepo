@@ -2,5 +2,13 @@
 C_Struct_Analyzer/analyzer
 C_Struct_Analyzer/lex.yy.c
 C_Struct_Analyzer/y.output
+C_Struct_Analyzer/grammar.output
 C_Struct_Analyzer/y.tab.c
+C_Struct_Analyzer/grammar.tab.c
 C_Struct_Analyzer/y.tab.h
+C_Struct_Analyzer/grammar.tab.h
+C_Struct_Analyzer/Debug
+*.opensdf
+*.sdf
+*.suo
+*.user
