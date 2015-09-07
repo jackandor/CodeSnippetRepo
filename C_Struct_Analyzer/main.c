@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
   yyin = fopen(argv[1], "r");
   yyparse();
   print_struct(head);
+/*
   struct struct_def *s = head;
   while(s != NULL) {
     gen_name_list(s->head);
@@ -136,5 +137,6 @@ int main(int argc, char *argv[])
     s = s->next;
   }
   printf("%s", buffer);
+*/
   return 0;
 }
