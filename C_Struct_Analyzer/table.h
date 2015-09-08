@@ -24,6 +24,7 @@ struct struct_def {
 
 extern struct var_def *alloc_var_def();
 extern struct struct_def *alloc_struct_def();
+extern void free_all(struct struct_def *h);
 
 extern struct struct_def *head;
 #ifdef __cplusplus

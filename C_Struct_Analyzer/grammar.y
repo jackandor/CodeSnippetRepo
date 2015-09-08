@@ -68,6 +68,7 @@ struct_declaration
     $$ = $2;
 	$$->sign = $1->sign;
 	$$->type = $1->type;
+	free($1);
   }
   ;
 

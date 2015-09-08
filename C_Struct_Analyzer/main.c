@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <crtdbg.h>
 #include "table.h"
 
 extern FILE *yyin;
@@ -122,12 +123,15 @@ void gen_get_value_from_idx(char *struct_name, struct var_def *v)
 
 int main(int argc, char *argv[])
 {
+  _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CRTDBG_ALLOC_MEM_DF);
+  //_CrtSetBreakAlloc(81);
   if(argc < 2) {
     printf("Usage: analyzer <file>\n");
     return -1;
   }
   yyin = fopen(argv[1], "r");
   yyparse();
+  yylex_destroy();
   print_struct(head);
 /*
   struct struct_def *s = head;
@@ -138,5 +142,6 @@ int main(int argc, char *argv[])
   }
   printf("%s", buffer);
 */
+  free_all(head);
   return 0;
 }
