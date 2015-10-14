@@ -1,7 +1,7 @@
 #ifndef LINKEDLIST_H
 #define LINKEDLIST_H
-struct link_list {
-    struct link_list *prev, *next;
+struct linkedlist {
+    linkedlist *prev, *next;
 };
 
 #define offset_of(type, member) \
@@ -10,20 +10,20 @@ struct link_list {
 #define container_of(ptr, type, member) \
     ((type *)((unsigned int)(ptr) - offset_of(type, member)))
 
-inline void init_link_list(link_list &p) {
+inline void init_linkedlist(linkedlist &p) {
     p.prev = NULL;
     p.next = NULL;
 }
 
-inline void push_front(link_list * &head, link_list &l) {
+inline void push_front(linkedlist * &head, linkedlist &l) {
     l.next = head;
     if (head)
         head->prev = &l;
     head = &l;
 }
 
-inline link_list *pop_back(link_list * &tail) {
-    link_list *ret = tail;
+inline linkedlist *pop_back(linkedlist * &tail) {
+    linkedlist *ret = tail;
     tail->prev->next = NULL;
     tail = tail->prev;
     return ret;
