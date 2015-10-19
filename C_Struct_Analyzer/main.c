@@ -12,27 +12,27 @@ void print_struct(struct struct_def *s)
     struct var_def *v = s->head;
     while(v != NULL) {
       printf("\t");
-      if(v->sign == UNSIGNED)
+      if(v->sign == UNSIGNEDTYPE)
         printf("unsigned ");
-      else if(v->sign == SIGNED)
+      else if (v->sign == SIGNEDTYPE)
         printf("signed ");
       switch(v->type) {
-        case CHAR:
+      case CHARTYPE:
           printf("char ");
           break;
-        case SHORT:
+      case SHORTTYPE:
           printf("short ");
           break;
-        case INT:
+      case INTTYPE:
           printf("int ");
           break;
-        case LONG:
+      case LONGTYPE:
           printf("long ");
           break;
-        case FLOAT:
+      case FLOATTYPE:
           printf("float ");
           break;
-        case DOUBLE:
+      case DOUBLETYPE:
           printf("double ");
           break;
         default:
@@ -94,17 +94,17 @@ void gen_get_value_from_idx(char *struct_name, struct var_def *v)
     if(first != v)
       print("else ");
     switch(v->type) {
-      case CHAR:
-      case SHORT:
-      case INT:
-      case LONG:
+    case CHARTYPE:
+    case SHORTTYPE:
+    case INTTYPE:
+    case LONGTYPE:
         if(v->array_size >0)
           print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%d\", p->%s[subscript]);\n", v->name, v->name);
         else
           print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%d\", p->%s);\n", v->name, v->name);
         break;
-      case FLOAT:
-      case DOUBLE:
+    case FLOATTYPE:
+    case DOUBLETYPE:
         if(v->array_size >0)
           print("if(!strcmp(field_name, \"%s\")) sprintf(buf, \"%%f\", p->%s[subscript]);\n", v->name, v->name);
         else

@@ -19,15 +19,15 @@ void comments();
 
 "//" { comments(); }
 
-"char" { return CHAR ; }
-"double" { return DOUBLE; }
-"float" { return FLOAT; }
-"int" { return INT; }
-"long" { return LONG; }
-"short" { return SHORT; }
-"signed" { return SIGNED; }
+"char" { return CHARTYPE ; }
+"double" { return DOUBLETYPE; }
+"float" { return FLOATTYPE; }
+"int" { return INTTYPE; }
+"long" { return LONGTYPE; }
+"short" { return SHORTTYPE; }
+"signed" { return SIGNEDTYPE; }
 "struct" { return STRUCT; }
-"unsigned" { return UNSIGNED; }
+"unsigned" { return UNSIGNEDTYPE; }
 
 {L}({L}|{D})* { yylval.string = strdup(yytext); return IDENTIFIER; }
 {D}+ { yylval.string = strdup(yytext); return CONSTANT; }
