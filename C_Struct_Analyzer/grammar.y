@@ -15,7 +15,7 @@ void yyerror(const char *s);
 }
 
 %token <string> IDENTIFIER CONSTANT
-%token <var_def> CHAR DOUBLE FLOAT INT LONG SHORT SIGNED UNSIGNED
+%token <var_def> CHARTYPE DOUBLETYPE FLOATTYPE INTTYPE LONGTYPE SHORTTYPE SIGNEDTYPE UNSIGNEDTYPE
 %token STRUCT
 
 %type <var_def> type_specifier specifier_qualifier_list pointer declarator direct_declarator struct_declarator struct_declarator_list struct_declaration struct_declaration_list
@@ -130,39 +130,39 @@ pointer
   ;
 
 type_specifier
-  : CHAR {
+  : CHARTYPE {
     $$ = alloc_var_def();
-    $$->type = CHAR;
+    $$->type = CHARTYPE;
   }
-  | DOUBLE {
+  | DOUBLETYPE {
     $$ = alloc_var_def();
-    $$->type = DOUBLE;
+    $$->type = DOUBLETYPE;
   }
-  | FLOAT {
+  | FLOATTYPE {
     $$ = alloc_var_def();
-    $$->type = FLOAT;
+    $$->type = FLOATTYPE;
   }
-  | INT {
+  | INTTYPE {
     $$ = alloc_var_def();
-    $$->type = INT;
+    $$->type = INTTYPE;
   }
-  | LONG {
+  | LONGTYPE {
     $$ = alloc_var_def();
-    $$->type = LONG;
+    $$->type = LONGTYPE;
   }
-  | SHORT {
+  | SHORTTYPE {
     $$ = alloc_var_def();
-    $$->type = SHORT;
+    $$->type = SHORTTYPE;
   }
-  | SIGNED {
+  | SIGNEDTYPE {
     $$ = alloc_var_def();
-    $$->sign = SIGNED;
-    $$->type = INT;
+    $$->sign = SIGNEDTYPE;
+    $$->type = INTTYPE;
   }
-  | UNSIGNED {
+  | UNSIGNEDTYPE {
     $$ = alloc_var_def();
-    $$->sign = UNSIGNED;
-    $$->type = INT;
+    $$->sign = UNSIGNEDTYPE;
+    $$->type = INTTYPE;
   }
   ;
 

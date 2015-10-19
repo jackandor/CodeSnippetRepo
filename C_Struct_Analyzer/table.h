@@ -27,6 +27,10 @@ extern struct struct_def *alloc_struct_def();
 extern void free_all(struct struct_def *h);
 
 extern struct struct_def *head;
+
+extern struct struct_def *find_struct(const char *name);
+extern int size_of_struct(struct struct_def *sd);
+
 #ifdef __cplusplus
 }
 #endif
