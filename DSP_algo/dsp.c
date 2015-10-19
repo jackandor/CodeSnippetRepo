@@ -28,3 +28,10 @@ void fir(const float *x, const float *h, float *y, const int nh, const int ny)
         y[j] = sum;
     }
 }
+
+void time(double *t, double fs, int points)
+{
+    int i;
+    for(i = 0; i < points; i++)
+        t[i] = i / fs;
+}
