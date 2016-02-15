@@ -240,64 +240,98 @@ float firCoeffs2[168] = {
 };
 
 
-#define N 16384
-#define BLOCK_SIZE            32
-#define NO (N + BLOCK_SIZE * 6)
-#define NUM_TAPS              67
 
-static float firState[BLOCK_SIZE + NUM_TAPS - 1];
-static float waveform[BLOCK_SIZE];
-static float waveform2[16384 * 2];
-
-float f1 = 2600;
+float f1 = 45000;
 float f2 = 100;
 float f3 = 15000;
+float f4 = 3;
 float Fs = 100000;
 #define PI 3.1415926
 
-class FIR_DECIMATE_INSTANCE
+struct fir_decimation
 {
-public:
-    FIR_DECIMATE_INSTANCE(uint16_t numTaps, uint8_t M, float *pCoeffs, uint32_t _blockSize = BLOCK_SIZE) : blockSize(_blockSize), pos(0)
-    {
-        pState = new float[blockSize + numTaps - 1];
-        input = new float[blockSize];
-        output = new float[blockSize / M];
-        arm_fir_decimate_init_f32(&S, numTaps, M, pCoeffs, pState, blockSize);
-    }
-
-    ~FIR_DECIMATE_INSTANCE()
-    {
-        delete[] pState;
-    }
-
-    bool Input(float *i, int n)
-    {
-        memcpy(&input[pos], i, sizeof(float) * n);
-        pos += n;
-        if (pos == blockSize) {
-            arm_fir_decimate_f32(&S, input, output, blockSize);
-            pos = 0;
-            return true;
-        }
-        return false;
-    }
-
-    float *Output(int &n)
-    {
-        n = blockSize / S.M;
-        return output;
-    }
-private:
     arm_fir_decimate_instance_f32 S;
     float *pState;
+    float *output;
+    uint32_t pos;
+    uint32_t skip;
     uint32_t blockSize;
-    float *input, *output;
-    int pos;
+    struct fir_decimation *next;
 };
+
+void init_fir_decimation(fir_decimation *F, uint16_t numTaps, uint8_t M, float *pCoeffs, uint32_t blockSize, uint32_t skipBlocks)
+{
+    F->pState = (float *)malloc((blockSize + numTaps - 1) *sizeof(float));
+    F->output = (float *)malloc(blockSize * sizeof(float));
+    F->skip = skipBlocks;
+    F->blockSize = blockSize;
+    F->pos = 0;
+    F->next = NULL;
+    arm_fir_decimate_init_f32(&(F->S), numTaps, M, pCoeffs, F->pState, blockSize);
+}
+
+void fir_input(fir_decimation *F, float *input, float *output, uint32_t *pos)
+{
+    uint32_t tmp = 0;
+    float *o;
+    if (F->next)
+        o = &(F->output[F->pos *(F->blockSize / F->S.M)]);
+    else {
+        o = &output[*pos];
+        *pos += F->blockSize / F->S.M;
+    }
+    arm_fir_decimate_f32(&(F->S), input, o, F->blockSize);
+    F->pos++;
+    if (F->pos == F->S.M) {
+        if (F->next) {
+            if (F->skip) {
+                F->skip--;
+                fir_input(F->next, F->output, output, &tmp);
+            } 
+            else
+                fir_input(F->next, F->output, output, pos);
+        }
+        F->pos = 0;
+    }
+}
+
+#define N 16384
+#define BLOCK_SIZE 40
+
+static float waveform[16384];
+static float waveform2[16384 +  BLOCK_SIZE * 2];
 
 int main()
 {
+    fir_decimation F2_20k, F2_10k, F2_5k, F5_2k, F2_1k, F2_500, F5_200, F2_100, F2_50, F5_20, F2_10;
+    init_fir_decimation(&F2_20k, 67, 2, firCoeffs, BLOCK_SIZE, 2); //50000
+    init_fir_decimation(&F2_10k, 67, 2, firCoeffs, BLOCK_SIZE, 2); //25000
+    init_fir_decimation(&F2_5k, 67, 2, firCoeffs, BLOCK_SIZE, 2); //12500
+    init_fir_decimation(&F5_2k, 168, 5, firCoeffs2, BLOCK_SIZE, 5); //5000
+    init_fir_decimation(&F2_1k, 67, 2, firCoeffs, BLOCK_SIZE, 2); //2500
+    init_fir_decimation(&F2_500, 67, 2, firCoeffs, BLOCK_SIZE, 2); //1250
+    init_fir_decimation(&F5_200, 168, 5, firCoeffs2, BLOCK_SIZE, 5); //500
+    init_fir_decimation(&F2_100, 67, 2, firCoeffs, BLOCK_SIZE, 2); //250
+    init_fir_decimation(&F2_50, 67, 2, firCoeffs, BLOCK_SIZE, 2); //125
+    init_fir_decimation(&F5_20, 168, 5, firCoeffs2, BLOCK_SIZE, 5); //50
+    init_fir_decimation(&F2_10, 67, 2, firCoeffs, BLOCK_SIZE, 2); //25
+    F2_20k.next = &F2_10k;
+    F2_10k.next = &F5_2k; //5000
+    F5_2k.next = &F2_1k; //2500
+    F2_1k.next = &F5_200; //500
+    F5_200.next = &F2_100; //250
+    /*F2_100.next = &F5_20; //50
+    F5_20.next = &F2_10; //25*/
+    float s = 0.0;
+    uint32_t cnt = 0;
+    while (cnt < 16384 +  BLOCK_SIZE * 5)
+    {
+        for (int i = 0; i < BLOCK_SIZE; i++)
+            waveform[i] = sin(2 * PI * f1 * (s + (float)i / Fs)) + sin(2 * PI * f2 * (s + (float)i / Fs)) + sin(2 * PI * f3 * (s + (float)i / Fs)) + sin(2 * PI * f4 * (s + (float)i / Fs));
+        s += (float)BLOCK_SIZE / (float)Fs;
+        fir_input(&F2_20k, waveform, waveform2, &cnt);
+    }
+#if 0
     float s = 0.0;
     int cnt = 0;
     FIR_DECIMATE_INSTANCE fdi1(67, 2, firCoeffs), fdi2(67, 2, firCoeffs), fdi3(168, 5, firCoeffs2, 160u);
@@ -319,6 +353,7 @@ int main()
             }
         }
     }
+#endif
     std::ofstream ofs("D:\\work\\matlab\\data.txt");
     for (int i = 0; i < 16384; i++)
         ofs << waveform2[i] << std::endl;
