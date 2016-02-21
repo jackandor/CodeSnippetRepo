@@ -187,34 +187,140 @@ void arm_biquad_cascade_df1_f64(arm_biquad_casd_df1_inst_f32 *S, double *pSrc, d
 }
 
 double iirCoeffs[] = {
-    1, -2, 1, 1.927121312653638, -0.93466838971091215,
-    1, -2, 1, 1.8420262841919222, -0.84924010836429775
+    1, 0.023284929919725805, 1, 0.6960669996516633,  -0.84973189572218899,
+    1, 0.36895643891338603,  1, 0.8461543697739129,  -0.7128337497705779,
+    1, 1.0304293270546507,   1, 1.0582455862616562,  -0.54676504484478561,
+    1, 1.8421701394305356,   1, 1.2325373353745148,  -0.41622696852602936,
+    1, -0.11649687319924533, 1, 0.63360452379601617, -0.95334790177622908
 };
 
-#define NUM_STAGES 2
-#define BLOCK_SIZE 40
-#define N 16384 + 256
-
-double waveform[N];
-double waveform2[N];
-double iirState[4 * NUM_STAGES];
+#define NUM_STAGES 5
+#define UNIT_SIZE 2
+#define UNIT_SIZE_X2 (UNIT_SIZE * 2)
+#define UNIT_SIZE_X4 (UNIT_SIZE * 4)
+#define N 16384
+double waveform[N + 4096];
+double reversal1[UNIT_SIZE_X4 + 2];
+double reversal2[UNIT_SIZE_X4 + 2];
+double reversal3[UNIT_SIZE_X4 + 2];
+double iirState1[4 * NUM_STAGES];
+double iirState2[4 * NUM_STAGES];
+double iirState3[4 * NUM_STAGES];
+double iirState4[4 * NUM_STAGES];
 
 #define PI 3.14159265
-#define Fs 256.0
-#define f1 0.2
+#define Fs 102400.0
+#define f1 18000.0
+#define f2 10.0
+
+void PrintPos(char *s, double *p)
+{
+    printf("%s", s);
+    if (reversal1 > p || p <= reversal1 + UNIT_SIZE_X4 + 1)
+        printf("reversal1[%d]", p - reversal1 - 1);
+    else if (reversal2 > p || p <= reversal2 + UNIT_SIZE_X4 + 1)
+        printf("reversal2[%d]", p - reversal2 - 1);
+    else if (reversal3 > p || p <= reversal3 + UNIT_SIZE_X4 + 1)
+        printf("reversal3[%d]", p - reversal3 - 1);
+    printf("\n");
+}
 
 int main()
 {
-    for (int i = 0; i < N; i++) {
-        waveform[i] = sin(2 * PI * f1 * ((double)i / Fs));
+#if 0
+    for (int i = 0; i < M; i++) {
+        waveform[i] = cos(2 * PI * f1 * ((double)i / Fs) + 1.0 / 2.0 * PI) + cos(2 * PI * f2 * ((double)i / Fs) + 3.0 / 4.0 * PI);
     }
+
     arm_biquad_casd_df1_inst_f32 S;
     arm_biquad_cascade_df1_init_f64(&S, NUM_STAGES, iirCoeffs, iirState);
     arm_biquad_cascade_df1_f64(&S, waveform, waveform2, N);
+    for (int i = 0; i < N; i++) {
+        waveform2[i] *= (0.72984788802843714 * 0.69461685976910936 * 0.62651101204385007 * 1.0069358880002877 * 0.0034819675793526421);
+        waveform3[N - i - 1] = waveform2[i];
+    }
+#if 1
+    arm_biquad_cascade_df1_init_f64(&S, NUM_STAGES, iirCoeffs, iirState);
+    arm_biquad_cascade_df1_f64(&S, waveform3, waveform4, N);
+    for (int i = 0; i < N; i++) {
+        waveform4[i] *= (0.72984788802843714 * 0.69461685976910936 * 0.62651101204385007 * 1.0069358880002877 * 0.0034819675793526421);
+        waveform5[N - i - 1] = waveform4[i];
+    }
+#endif
+    for (int i = 4096; i < 4096 + 8192; i++)
+        waveform6[i - 4096] = waveform5[i];
+#if 1
+    arm_biquad_cascade_df1_init_f64(&S, NUM_STAGES, iirCoeffs, iirState);
+    arm_biquad_cascade_df1_f64(&S, waveform + 8192, waveform2, N);
+    for (int i = 0; i < N; i++) {
+        waveform2[i] *= (0.72984788802843714 * 0.69461685976910936 * 0.62651101204385007 * 1.0069358880002877 * 0.0034819675793526421);
+        waveform3[N - i - 1] = waveform2[i];
+    }
+#if 1
+    arm_biquad_cascade_df1_init_f64(&S, NUM_STAGES, iirCoeffs, iirState);
+    arm_biquad_cascade_df1_f64(&S, waveform3, waveform4, N);
+    for (int i = 0; i < N; i++) {
+        waveform4[i] *= (0.72984788802843714 * 0.69461685976910936 * 0.62651101204385007 * 1.0069358880002877 * 0.0034819675793526421);
+        waveform5[N - i - 1] = waveform4[i];
+    }
+#endif
+    for (int i = 4096; i < 4096 + 8192; i++)
+        waveform6[i + 4096] = waveform5[i];
+#endif
+#endif
 
+    uint32_t cnt = 0;
+    uint32_t skip = 0;
+    uint32_t div = 5;
+    arm_biquad_casd_df1_inst_f32 s1, s2, s3;
+    arm_biquad_casd_df1_inst_f32 *S1 = &s1;
+    arm_biquad_casd_df1_inst_f32 *S2 = &s2;
+    arm_biquad_casd_df1_inst_f32 *S3 = &s3;
+    arm_biquad_cascade_df1_init_f64(S1, NUM_STAGES, iirCoeffs, iirState1);
+    arm_biquad_cascade_df1_init_f64(S2, NUM_STAGES, iirCoeffs, iirState3);
+    arm_biquad_cascade_df1_init_f64(S3, NUM_STAGES, iirCoeffs, iirState4);
+    double in, tmp;
+    double *p1 = reversal1 + 1;
+    double *p2 = reversal2 + 1 + UNIT_SIZE_X2;
+    double *p3 = reversal3 + 1 + UNIT_SIZE_X4;
+    double *end = p1 + UNIT_SIZE_X4;
+    double *output = waveform;
+    int state = 0;
+    PrintPos("p1=", p1);
+    PrintPos("p2=", p2);
+    PrintPos("p3=", p3);
+    while (cnt < 16384 + UNIT_SIZE_X4)
+    {
+        in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
+#if 0
+        *output++ = in;
+#else
+        arm_biquad_cascade_df1_f64(S1, p1, output, 2);
+        p1 += 2;
+        arm_biquad_cascade_df1_f64(S2, &in, --p2, 1);
+        arm_biquad_cascade_df1_f64(S3, &in, --p3, 1);
+        if (p1 == end) {
+            arm_biquad_casd_df1_inst_f32 tmp;
+            double *t;
+            tmp = *S3;
+            t = p3;
+            arm_biquad_cascade_df1_init_f64(S3, NUM_STAGES, iirCoeffs, iirState4);
+            p3 = p1;
+            arm_biquad_cascade_df1_init_f64(S1, NUM_STAGES, iirCoeffs, iirState4);
+            p1 = p2;
+            end = p1 + UNIT_SIZE_X4;
+            *S2 = tmp;
+            p2 = t;
+            PrintPos("p1=", p1);
+            PrintPos("p2=", p2);
+            PrintPos("p3=", p3);
+        }
+#endif
+        cnt++;
+    }
     std::ofstream ofs("D:\\work\\matlab\\data1.txt");
     for (int i = 0; i < N; i++)
-        ofs << waveform2[i] << "," << std::endl;
+        ofs << waveform[i] << "," << std::endl;
     return 0;
 }
 
