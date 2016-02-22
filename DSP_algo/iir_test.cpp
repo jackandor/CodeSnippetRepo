@@ -289,28 +289,23 @@ int main()
     double *output = waveform;
     double *o = (double *)&tmp[2];
     int state = 0;
+    int gap = 0;
+    int head = UNIT_SIZE - 1 - UNIT_SIZE_X4;//-12289;
+    int tail = UNIT_SIZE_X3 - 1 - UNIT_SIZE_X4;//-4097;
     while (cnt < UNIT_SIZE * 4 + UNIT_SIZE_X4)
     {
-        //in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
+        in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
 #if 0
         *output++ = in;
 #else
         if (cnt >= 0) {
-            uint32_t i = ((cnt / UNIT_SIZE_X4) * UNIT_SIZE_X4 + (UNIT_SIZE_X4 - cnt % UNIT_SIZE_X4 - 1));
-            if (((i % UNIT_SIZE_X4) < UNIT_SIZE) || ((i % UNIT_SIZE_X4) > UNIT_SIZE_X3) || (i % 2 == 0))
-                o = (double *)&tmp[2];
-            else {
-                uint32_t pos = 0;
-                if ((i - UNIT_SIZE) / UNIT_SIZE_X4 == 0) {
-                    pos = (i - UNIT_SIZE) % UNIT_SIZE_X4;
-                }
-                else {
-                    pos = (i - UNIT_SIZE) / UNIT_SIZE_X4 * UNIT_SIZE_X2 + (i - UNIT_SIZE) % UNIT_SIZE_X4;
-                }
-                printf("%d\n", pos);
-                printf("%d\n", pos - 1);
-                o = &output[pos];
-            }
+            int i = (cnt / UNIT_SIZE_X2) * UNIT_SIZE_X2 + UNIT_SIZE_X4 - (cnt % UNIT_SIZE_X2) * 2 - 1;
+            if (i <= head)
+                o = &tmp[2];
+            else if (i > tail)
+                o = &tmp[2];
+            else
+                o = &output[i- UNIT_SIZE - 1];
         }
         //arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
         *(--o) = *p1++;
@@ -334,10 +329,13 @@ int main()
             end = p1 + UNIT_SIZE_X4;
             *S2 = tmp;
             p2 = t;
+            gap = 0;
+            head += UNIT_SIZE_X2;
+            tail += UNIT_SIZE_X2;
         }
 #endif
         cnt++;
-        in = (int)in + 1;
+        //in = (int)in + 1;
     }
     std::ofstream ofs("D:\\work\\matlab\\data1.txt");
     for (int i = 0; i < N; i++)
