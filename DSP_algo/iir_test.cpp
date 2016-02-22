@@ -195,11 +195,12 @@ double iirCoeffs[] = {
 };
 
 #define NUM_STAGES 5
-#define UNIT_SIZE 2
+#define UNIT_SIZE 4096
 #define UNIT_SIZE_X2 (UNIT_SIZE * 2)
+#define UNIT_SIZE_X3 (UNIT_SIZE * 3)
 #define UNIT_SIZE_X4 (UNIT_SIZE * 4)
 #define N 16384
-double waveform[N + 4096];
+double waveform[UNIT_SIZE * 100];
 double reversal1[UNIT_SIZE_X4 + 2];
 double reversal2[UNIT_SIZE_X4 + 2];
 double reversal3[UNIT_SIZE_X4 + 2];
@@ -269,7 +270,7 @@ int main()
 #endif
 #endif
 
-    uint32_t cnt = 0;
+    int cnt = -UNIT_SIZE_X4;
     uint32_t skip = 0;
     uint32_t div = 5;
     arm_biquad_casd_df1_inst_f32 s1, s2, s3;
@@ -279,26 +280,48 @@ int main()
     arm_biquad_cascade_df1_init_f64(S1, NUM_STAGES, iirCoeffs, iirState1);
     arm_biquad_cascade_df1_init_f64(S2, NUM_STAGES, iirCoeffs, iirState3);
     arm_biquad_cascade_df1_init_f64(S3, NUM_STAGES, iirCoeffs, iirState4);
-    double in, tmp;
+    double in = 0;
+    double tmp[2];
     double *p1 = reversal1 + 1;
     double *p2 = reversal2 + 1 + UNIT_SIZE_X2;
     double *p3 = reversal3 + 1 + UNIT_SIZE_X4;
     double *end = p1 + UNIT_SIZE_X4;
     double *output = waveform;
+    double *o = (double *)&tmp[2];
     int state = 0;
-    PrintPos("p1=", p1);
-    PrintPos("p2=", p2);
-    PrintPos("p3=", p3);
-    while (cnt < 16384 + UNIT_SIZE_X4)
+    while (cnt < UNIT_SIZE * 4 + UNIT_SIZE_X4)
     {
-        in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
+        //in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
 #if 0
         *output++ = in;
 #else
-        arm_biquad_cascade_df1_f64(S1, p1, output, 2);
-        p1 += 2;
-        arm_biquad_cascade_df1_f64(S2, &in, --p2, 1);
-        arm_biquad_cascade_df1_f64(S3, &in, --p3, 1);
+        if (cnt >= 0) {
+            uint32_t i = ((cnt / UNIT_SIZE_X4) * UNIT_SIZE_X4 + (UNIT_SIZE_X4 - cnt % UNIT_SIZE_X4 - 1));
+            if (((i % UNIT_SIZE_X4) < UNIT_SIZE) || ((i % UNIT_SIZE_X4) > UNIT_SIZE_X3) || (i % 2 == 0))
+                o = (double *)&tmp[2];
+            else {
+                uint32_t pos = 0;
+                if ((i - UNIT_SIZE) / UNIT_SIZE_X4 == 0) {
+                    pos = (i - UNIT_SIZE) % UNIT_SIZE_X4;
+                }
+                else {
+                    pos = (i - UNIT_SIZE) / UNIT_SIZE_X4 * UNIT_SIZE_X2 + (i - UNIT_SIZE) % UNIT_SIZE_X4;
+                }
+                printf("%d\n", pos);
+                printf("%d\n", pos - 1);
+                o = &output[pos];
+            }
+        }
+        //arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
+        *(--o) = *p1++;
+        //arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
+        *(--o) = *p1++;
+        if (cnt < 0)
+            o += 2;
+        //arm_biquad_cascade_df1_f64(S2, &in, --p2, 1);
+        *(--p2) = in;
+        //arm_biquad_cascade_df1_f64(S3, &in, --p3, 1);
+        *(--p3) = in;
         if (p1 == end) {
             arm_biquad_casd_df1_inst_f32 tmp;
             double *t;
@@ -311,12 +334,10 @@ int main()
             end = p1 + UNIT_SIZE_X4;
             *S2 = tmp;
             p2 = t;
-            PrintPos("p1=", p1);
-            PrintPos("p2=", p2);
-            PrintPos("p3=", p3);
         }
 #endif
         cnt++;
+        in = (int)in + 1;
     }
     std::ofstream ofs("D:\\work\\matlab\\data1.txt");
     for (int i = 0; i < N; i++)
