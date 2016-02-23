@@ -195,7 +195,7 @@ double iirCoeffs[] = {
 };
 
 #define NUM_STAGES 5
-#define UNIT_SIZE 4096
+#define UNIT_SIZE 256
 #define UNIT_SIZE_X2 (UNIT_SIZE * 2)
 #define UNIT_SIZE_X3 (UNIT_SIZE * 3)
 #define UNIT_SIZE_X4 (UNIT_SIZE * 4)
@@ -206,7 +206,7 @@ double reversal3[UNIT_SIZE_X4 + 2];
 double iirState1[4 * NUM_STAGES];
 double iirState2[4 * NUM_STAGES];
 double iirState3[4 * NUM_STAGES];
-double waveform[N * 2 + UNIT_SIZE];
+double waveform[N];
 
 #define PI 3.14159265
 #define Fs 102400.0
@@ -226,6 +226,41 @@ void PrintPos(char *s, double *p)
 }
 
 #define FILTER
+
+#define b0 pCoeffs[0]
+#define b1 pCoeffs[1]
+#define b2 pCoeffs[2]
+#define a1 pCoeffs[3]
+#define a2 pCoeffs[4]
+
+#define Xn (*pIn)
+#define Xn1 pState[0]
+#define Xn2 pState[1]
+#define Yn1 pState[2]
+#define Yn2 pState[3]
+
+
+void filter(uint32_t stage, double *pCoeffs, double *pState, double *pIn, double *pOut)
+{
+    do {
+        double acc = (b0 * Xn) + (b1 * Xn1) + (b2 * Xn2) + (a1 * Yn1) + (a2 * Yn2);
+
+
+        Xn2 = Xn1;
+        Xn1 = Xn;
+        Yn2 = Yn1;
+        Yn1 = acc;
+
+        *pOut = acc;
+
+        pCoeffs += 5;
+        pState += 4;
+
+        pIn = pOut;
+
+        stage--;
+    } while (stage > 0u);
+}
 
 int main()
 {
@@ -270,7 +305,7 @@ int main()
         waveform6[i + 4096] = waveform5[i];
 #endif
 #endif
-#if 1
+#if 0
     int cnt = -UNIT_SIZE_X4;
     uint32_t skip = 0;
     uint32_t div = 5;
@@ -360,13 +395,73 @@ int main()
         waveform[i] = cos(2 * PI * f1 * ((double)i / Fs) + 1.0 / 2.0 * PI) + cos(2 * PI * f2 * ((double)i / Fs) + 3.0 / 4.0 * PI);
     }
 
+    double *in = waveform;
+    double *out = waveform3;
+
     arm_biquad_casd_df1_inst_f32 S;
     arm_biquad_cascade_df1_init_f64(&S, NUM_STAGES, iirCoeffs, iirState1);
-    for (int i = 0; i < N; i++)
-        arm_biquad_cascade_df1_f64(&S, waveform+i, waveform2+i, 1);
+    for (int i = 0; i < N; i++) {
+        arm_biquad_cascade_df1_f64(&S, waveform + i, waveform2 + i, 1);
+        filter(NUM_STAGES, iirCoeffs, iirState2, in++, out++);
+        if (*(waveform2 + i) != *(out - 1))
+            printf("error");
+    }
 #endif
+    int cnt = -UNIT_SIZE_X4;
+    double *IIRState1 = iirState1;
+    double *IIRState2 = iirState2;
+    double *IIRState3 = iirState3;
+    memset(IIRState1, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+    memset(IIRState2, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+    memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+    double in = 0;
+    double tmp[2];
+    double *p1 = reversal1 + 1;
+    double *p2 = reversal2 + 1 + UNIT_SIZE_X2;
+    double *p3 = reversal3 + 1 + UNIT_SIZE_X4;
+    double *end = p1 + UNIT_SIZE_X4;
+    double *output = waveform;
+    double *o = (double *)&tmp[2];
+    int head = UNIT_SIZE - 1 - UNIT_SIZE_X4;//-12289;
+    int tail = UNIT_SIZE_X3 - 1 - UNIT_SIZE_X4;//-4097;
+    while (cnt < N - UNIT_SIZE / 2)
+    {
+        in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
+        if (cnt >= 0) {
+            int i = (cnt / UNIT_SIZE_X2) * UNIT_SIZE_X2 + UNIT_SIZE_X4 - (cnt % UNIT_SIZE_X2) * 2 - 1;
+            if ((i <= head) || (i > tail))
+                o = &tmp[2];
+            else
+                o = &output[i - UNIT_SIZE + 1];
+        }
+        filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, --o);
+        filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, --o);
+        if (cnt < 0)
+            o += 2;
+        filter(NUM_STAGES, iirCoeffs, IIRState2, &in, --p2);
+        filter(NUM_STAGES, iirCoeffs, IIRState3, &in, --p3);
+        if (p1 == end) {
+            double *tmp = p1;
+            p1 = p2;
+            p2 = p3;
+            p3 = tmp;
+
+            end = p1 + UNIT_SIZE_X4;
+
+            double *IIRState = IIRState1;
+            IIRState1 = IIRState2;
+            IIRState2 = IIRState3;
+            IIRState3 = IIRState;
+            memset(IIRState1, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+            memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+
+            head += UNIT_SIZE_X2;
+            tail += UNIT_SIZE_X2;
+        }
+        cnt++;
+    }
     std::ofstream ofs("D:\\work\\matlab\\data1.txt");
-    for (int i = 0; i < N *2; i++)
+    for (int i = 0; i < N; i++)
         ofs << waveform[i] << "," << std::endl;
     return 0;
 }
