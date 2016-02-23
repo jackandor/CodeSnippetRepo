@@ -200,19 +200,18 @@ double iirCoeffs[] = {
 #define UNIT_SIZE_X3 (UNIT_SIZE * 3)
 #define UNIT_SIZE_X4 (UNIT_SIZE * 4)
 #define N 16384
-double waveform[UNIT_SIZE * 100];
 double reversal1[UNIT_SIZE_X4 + 2];
 double reversal2[UNIT_SIZE_X4 + 2];
 double reversal3[UNIT_SIZE_X4 + 2];
 double iirState1[4 * NUM_STAGES];
 double iirState2[4 * NUM_STAGES];
 double iirState3[4 * NUM_STAGES];
-double iirState4[4 * NUM_STAGES];
+double waveform[N * 2 + UNIT_SIZE];
 
 #define PI 3.14159265
 #define Fs 102400.0
 #define f1 18000.0
-#define f2 10.0
+#define f2 25.0
 
 void PrintPos(char *s, double *p)
 {
@@ -225,6 +224,8 @@ void PrintPos(char *s, double *p)
         printf("reversal3[%d]", p - reversal3 - 1);
     printf("\n");
 }
+
+#define FILTER
 
 int main()
 {
@@ -269,7 +270,7 @@ int main()
         waveform6[i + 4096] = waveform5[i];
 #endif
 #endif
-
+#if 1
     int cnt = -UNIT_SIZE_X4;
     uint32_t skip = 0;
     uint32_t div = 5;
@@ -278,8 +279,8 @@ int main()
     arm_biquad_casd_df1_inst_f32 *S2 = &s2;
     arm_biquad_casd_df1_inst_f32 *S3 = &s3;
     arm_biquad_cascade_df1_init_f64(S1, NUM_STAGES, iirCoeffs, iirState1);
-    arm_biquad_cascade_df1_init_f64(S2, NUM_STAGES, iirCoeffs, iirState3);
-    arm_biquad_cascade_df1_init_f64(S3, NUM_STAGES, iirCoeffs, iirState4);
+    arm_biquad_cascade_df1_init_f64(S2, NUM_STAGES, iirCoeffs, iirState2);
+    arm_biquad_cascade_df1_init_f64(S3, NUM_STAGES, iirCoeffs, iirState3);
     double in = 0;
     double tmp[2];
     double *p1 = reversal1 + 1;
@@ -288,13 +289,13 @@ int main()
     double *end = p1 + UNIT_SIZE_X4;
     double *output = waveform;
     double *o = (double *)&tmp[2];
-    int state = 0;
-    int gap = 0;
     int head = UNIT_SIZE - 1 - UNIT_SIZE_X4;//-12289;
     int tail = UNIT_SIZE_X3 - 1 - UNIT_SIZE_X4;//-4097;
-    while (cnt < UNIT_SIZE * 4 + UNIT_SIZE_X4)
+    while (cnt < N * 2 + UNIT_SIZE_X2)
     {
+#ifdef FILTER
         in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
+#endif
 #if 0
         *output++ = in;
 #else
@@ -304,41 +305,68 @@ int main()
                 o = &tmp[2];
             else if (i > tail)
                 o = &tmp[2];
-            else
-                o = &output[i- UNIT_SIZE - 1];
+            else {
+                o = &output[i - UNIT_SIZE + 1];
+            }
         }
-        //arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
+#ifdef FILTER
+        arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
+#else
         *(--o) = *p1++;
-        //arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
+#endif
+#ifdef FILTER
+        arm_biquad_cascade_df1_f64(S1, p1++, --o, 1);
+#else
         *(--o) = *p1++;
+#endif
         if (cnt < 0)
             o += 2;
-        //arm_biquad_cascade_df1_f64(S2, &in, --p2, 1);
+#ifdef FILTER
+        arm_biquad_cascade_df1_f64(S2, &in, --p2, 1);
+#else
         *(--p2) = in;
-        //arm_biquad_cascade_df1_f64(S3, &in, --p3, 1);
+#endif
+#ifdef FILTER
+        arm_biquad_cascade_df1_f64(S3, &in, --p3, 1);
+#else
         *(--p3) = in;
+#endif
         if (p1 == end) {
-            arm_biquad_casd_df1_inst_f32 tmp;
-            double *t;
-            tmp = *S3;
-            t = p3;
-            arm_biquad_cascade_df1_init_f64(S3, NUM_STAGES, iirCoeffs, iirState4);
-            p3 = p1;
-            arm_biquad_cascade_df1_init_f64(S1, NUM_STAGES, iirCoeffs, iirState4);
+            double *tmp = p1;
             p1 = p2;
+            p2 = p3;
+            p3 = tmp;
+
             end = p1 + UNIT_SIZE_X4;
-            *S2 = tmp;
-            p2 = t;
-            gap = 0;
+
+            arm_biquad_casd_df1_inst_f32 *S = S1;
+            S1 = S2;
+            S2 = S3;
+            S3 = S; 
+            memset(S1->pState, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+            memset(S3->pState, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
             head += UNIT_SIZE_X2;
             tail += UNIT_SIZE_X2;
         }
 #endif
         cnt++;
-        //in = (int)in + 1;
+#ifndef FILTER
+        in = (int)in + 1;
+#endif
     }
-    std::ofstream ofs("D:\\work\\matlab\\data1.txt");
+#endif
+#if 0
+    for (int i = 0; i < N; i++) {
+        waveform[i] = cos(2 * PI * f1 * ((double)i / Fs) + 1.0 / 2.0 * PI) + cos(2 * PI * f2 * ((double)i / Fs) + 3.0 / 4.0 * PI);
+    }
+
+    arm_biquad_casd_df1_inst_f32 S;
+    arm_biquad_cascade_df1_init_f64(&S, NUM_STAGES, iirCoeffs, iirState1);
     for (int i = 0; i < N; i++)
+        arm_biquad_cascade_df1_f64(&S, waveform+i, waveform2+i, 1);
+#endif
+    std::ofstream ofs("D:\\work\\matlab\\data1.txt");
+    for (int i = 0; i < N *2; i++)
         ofs << waveform[i] << "," << std::endl;
     return 0;
 }
