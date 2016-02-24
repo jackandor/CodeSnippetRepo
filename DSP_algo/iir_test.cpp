@@ -195,11 +195,11 @@ double iirCoeffs[] = {
 };
 
 #define NUM_STAGES 5
-#define UNIT_SIZE 256
+#define UNIT_SIZE 200
 #define UNIT_SIZE_X2 (UNIT_SIZE * 2)
 #define UNIT_SIZE_X3 (UNIT_SIZE * 3)
 #define UNIT_SIZE_X4 (UNIT_SIZE * 4)
-#define N 16384
+#define N 8192
 double reversal1[UNIT_SIZE_X4 + 2];
 double reversal2[UNIT_SIZE_X4 + 2];
 double reversal3[UNIT_SIZE_X4 + 2];
@@ -415,29 +415,38 @@ int main()
     memset(IIRState2, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
     memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
     double in = 0;
-    double tmp[2];
+    double tmp;
     double *p1 = reversal1 + 1;
     double *p2 = reversal2 + 1 + UNIT_SIZE_X2;
     double *p3 = reversal3 + 1 + UNIT_SIZE_X4;
     double *end = p1 + UNIT_SIZE_X4;
     double *output = waveform;
-    double *o = (double *)&tmp[2];
     int head = UNIT_SIZE - 1 - UNIT_SIZE_X4;//-12289;
     int tail = UNIT_SIZE_X3 - 1 - UNIT_SIZE_X4;//-4097;
-    while (cnt < N - UNIT_SIZE / 2)
+    int count = 0;
+    int div = 2;
+    while (cnt < ((N * div) + UNIT_SIZE) / UNIT_SIZE_X2 * UNIT_SIZE_X2 - UNIT_SIZE / 2)
     {
         in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
         if (cnt >= 0) {
             int i = (cnt / UNIT_SIZE_X2) * UNIT_SIZE_X2 + UNIT_SIZE_X4 - (cnt % UNIT_SIZE_X2) * 2 - 1;
-            if ((i <= head) || (i > tail))
-                o = &tmp[2];
-            else
-                o = &output[i - UNIT_SIZE + 1];
+            if ((i <= head) || (i > tail) || (i - UNIT_SIZE > (N * div))) {
+                filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
+                filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
+            }
+            else {
+                if ((i - UNIT_SIZE) % div)
+                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
+                else
+                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[(i - UNIT_SIZE) / div]);
+                if ((i - UNIT_SIZE - 1) % div)
+                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
+                else
+                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[(i - UNIT_SIZE - 1) / div]);
+            }
         }
-        filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, --o);
-        filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, --o);
-        if (cnt < 0)
-            o += 2;
+        else
+            p1 += 2;
         filter(NUM_STAGES, iirCoeffs, IIRState2, &in, --p2);
         filter(NUM_STAGES, iirCoeffs, IIRState3, &in, --p3);
         if (p1 == end) {
