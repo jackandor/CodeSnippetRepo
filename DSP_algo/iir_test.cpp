@@ -187,31 +187,35 @@ void arm_biquad_cascade_df1_f64(arm_biquad_casd_df1_inst_f32 *S, double *pSrc, d
 }
 
 double iirCoeffs[] = {
-    1, 0.023284929919725805, 1, 0.6960669996516633,  -0.84973189572218899,
-    1, 0.36895643891338603,  1, 0.8461543697739129,  -0.7128337497705779,
-    1, 1.0304293270546507,   1, 1.0582455862616562,  -0.54676504484478561,
-    1, 1.8421701394305356,   1, 1.2325373353745148,  -0.41622696852602936,
-    1, -0.11649687319924533, 1, 0.63360452379601617, -0.95334790177622908
+    1, -1.97719323207566,    1, 1.9802369565674973,   -0.99554757578230135,
+    1, -1.9748153453156747,  1, 1.9712741991857123,   -0.98527183842069732,
+    1, -1.96779467503603,    1, 1.9598791975932992,   -0.97116707701245208,
+    1, -1.9458324884454772,  1, 1.9454279089853921,   -0.95272940230598191,
+    1, -1.8281501258257986,  1, 1.9313224937577653,   -0.93454637856878398,
+    1, 1,                    0, 0.96255430172189049,  0.0
 };
 
-#define NUM_STAGES 5
-#define UNIT_SIZE 200
+
+#define NUM_STAGES 6
+#define UNIT_SIZE 1024
 #define UNIT_SIZE_X2 (UNIT_SIZE * 2)
 #define UNIT_SIZE_X3 (UNIT_SIZE * 3)
 #define UNIT_SIZE_X4 (UNIT_SIZE * 4)
-#define N 8192
+
+#define N 16384
+#define PI 3.14159265
+#define Fs 102400.0
+#define DIV 40
+#define f1 18000.0
+#define f2 25.0
+
 double reversal1[UNIT_SIZE_X4 + 2];
 double reversal2[UNIT_SIZE_X4 + 2];
 double reversal3[UNIT_SIZE_X4 + 2];
 double iirState1[4 * NUM_STAGES];
 double iirState2[4 * NUM_STAGES];
 double iirState3[4 * NUM_STAGES];
-double waveform[N];
-
-#define PI 3.14159265
-#define Fs 102400.0
-#define f1 18000.0
-#define f2 25.0
+double waveform[2 * N];
 
 void PrintPos(char *s, double *p)
 {
@@ -419,43 +423,45 @@ int main()
     double *p1 = reversal1 + 1;
     double *p2 = reversal2 + 1 + UNIT_SIZE_X2;
     double *p3 = reversal3 + 1 + UNIT_SIZE_X4;
-    double *end = p1 + UNIT_SIZE_X4;
+    double *end = p2 - UNIT_SIZE_X2;
     double *output = waveform;
     int head = UNIT_SIZE - 1 - UNIT_SIZE_X4;//-12289;
     int tail = UNIT_SIZE_X3 - 1 - UNIT_SIZE_X4;//-4097;
     int count = 0;
-    int div = 2;
-    while (cnt < ((N * div) + UNIT_SIZE) / UNIT_SIZE_X2 * UNIT_SIZE_X2 - UNIT_SIZE / 2)
+    int div = DIV;
+    while (cnt < (((N + UNIT_SIZE) * div) + UNIT_SIZE) / UNIT_SIZE_X2 * UNIT_SIZE_X2 - UNIT_SIZE / 2)
     {
         in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
         if (cnt >= 0) {
             int i = (cnt / UNIT_SIZE_X2) * UNIT_SIZE_X2 + UNIT_SIZE_X4 - (cnt % UNIT_SIZE_X2) * 2 - 1;
-            if ((i <= head) || (i > tail) || (i - UNIT_SIZE > (N * div))) {
+            int pos = i - UNIT_SIZE;
+            if ((i <= head) || (i > tail) || (pos > (N * div))) {
                 filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
                 filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
             }
             else {
-                if ((i - UNIT_SIZE) % div)
+                if (pos % div)
                     filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
                 else
-                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[(i - UNIT_SIZE) / div]);
-                if ((i - UNIT_SIZE - 1) % div)
+                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[pos / div]);
+                pos--;
+                if (pos % div)
                     filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
                 else
-                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[(i - UNIT_SIZE - 1) / div]);
+                    filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[pos / div]);
             }
         }
         else
             p1 += 2;
         filter(NUM_STAGES, iirCoeffs, IIRState2, &in, --p2);
         filter(NUM_STAGES, iirCoeffs, IIRState3, &in, --p3);
-        if (p1 == end) {
+        if (p2 == end) {
             double *tmp = p1;
             p1 = p2;
             p2 = p3;
             p3 = tmp;
 
-            end = p1 + UNIT_SIZE_X4;
+            end = p2 - UNIT_SIZE_X2;
 
             double *IIRState = IIRState1;
             IIRState1 = IIRState2;
@@ -470,8 +476,11 @@ int main()
         cnt++;
     }
     std::ofstream ofs("D:\\work\\matlab\\data1.txt");
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < N; i++) {
+        waveform[i] *= 0.20848933281704451 * 0.55580032406388613 * 0.35049729918207673 * 0.13479469724652104 * 0.018759890436406867 * 0.060286089020554802;
+        waveform[i] *= 0.20848933281704451 * 0.55580032406388613 * 0.35049729918207673 * 0.13479469724652104 * 0.018759890436406867 * 0.060286089020554802;
         ofs << waveform[i] << "," << std::endl;
+    }
     return 0;
 }
 
