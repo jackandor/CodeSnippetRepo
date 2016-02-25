@@ -186,48 +186,34 @@ void arm_biquad_cascade_df1_f64(arm_biquad_casd_df1_inst_f32 *S, double *pSrc, d
     } while (stage > 0u);
 }
 
-double iirCoeffs[] = {
-    1, -1.97719323207566,    1, 1.9802369565674973,   -0.99554757578230135,
-    1, -1.9748153453156747,  1, 1.9712741991857123,   -0.98527183842069732,
-    1, -1.96779467503603,    1, 1.9598791975932992,   -0.97116707701245208,
-    1, -1.9458324884454772,  1, 1.9454279089853921,   -0.95272940230598191,
-    1, -1.8281501258257986,  1, 1.9313224937577653,   -0.93454637856878398,
-    1, 1,                    0, 0.96255430172189049,  0.0
+float iirCoeffs[] = {
+    1.0f, -1.9999427795410156f, 1.0f, 1.9997379779815674f, -0.99977630376815796f,
+    1.0f, -1.9999368190765381f, 1.0f, 1.9992214441299438f, -0.99925673007965088f,
+    1.0f, -1.999919056892395f,  1.0f, 1.9985073804855347f, -0.99853599071502686f,
+    1.0f, -1.9998630285263062f, 1.0f, 1.997562050819397f,  -0.99758070707321167f,
+    1.0f, -1.9995522499084473f, 1.0f, 1.9966154098510742f, -0.99662375450134277f,
+    1.0f,  1.0f,                0.0f, 0.99809616804122925f, 0.0f
 };
 
 
 #define NUM_STAGES 6
-#define UNIT_SIZE 1024
+#define UNIT_SIZE 32768
 #define UNIT_SIZE_X2 (UNIT_SIZE * 2)
 #define UNIT_SIZE_X3 (UNIT_SIZE * 3)
 #define UNIT_SIZE_X4 (UNIT_SIZE * 4)
 
 #define N 16384
-#define PI 3.14159265
-#define Fs 102400.0
-#define DIV 40
-#define f1 18000.0
-#define f2 25.0
+#define PI 3.14159265f
+#define Fs 102400.0f
+#define DIV 400
+#define f1 18000.0f
+#define f2 2.0f
 
-double reversal1[UNIT_SIZE_X4 + 2];
-double reversal2[UNIT_SIZE_X4 + 2];
-double reversal3[UNIT_SIZE_X4 + 2];
-double iirState1[4 * NUM_STAGES];
-double iirState2[4 * NUM_STAGES];
-double iirState3[4 * NUM_STAGES];
-double waveform[2 * N];
-
-void PrintPos(char *s, double *p)
-{
-    printf("%s", s);
-    if (reversal1 > p || p <= reversal1 + UNIT_SIZE_X4 + 1)
-        printf("reversal1[%d]", p - reversal1 - 1);
-    else if (reversal2 > p || p <= reversal2 + UNIT_SIZE_X4 + 1)
-        printf("reversal2[%d]", p - reversal2 - 1);
-    else if (reversal3 > p || p <= reversal3 + UNIT_SIZE_X4 + 1)
-        printf("reversal3[%d]", p - reversal3 - 1);
-    printf("\n");
-}
+float reversal[3 * UNIT_SIZE_X4];
+float iirState1[4 * NUM_STAGES];
+float iirState2[4 * NUM_STAGES];
+float iirState3[4 * NUM_STAGES];
+float waveform[2 * N];
 
 #define FILTER
 
@@ -244,10 +230,10 @@ void PrintPos(char *s, double *p)
 #define Yn2 pState[3]
 
 
-void filter(uint32_t stage, double *pCoeffs, double *pState, double *pIn, double *pOut)
+void filter(uint32_t stage, float *pCoeffs, float *pState, float *pIn, float *pOut)
 {
     do {
-        double acc = (b0 * Xn) + (b1 * Xn1) + (b2 * Xn2) + (a1 * Yn1) + (a2 * Yn2);
+        float acc = (b0 * Xn) + (b1 * Xn1) + (b2 * Xn2) + (a1 * Yn1) + (a2 * Yn2);
 
 
         Xn2 = Xn1;
@@ -412,26 +398,26 @@ int main()
     }
 #endif
     int cnt = -UNIT_SIZE_X4;
-    double *IIRState1 = iirState1;
-    double *IIRState2 = iirState2;
-    double *IIRState3 = iirState3;
-    memset(IIRState1, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
-    memset(IIRState2, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
-    memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
-    double in = 0;
-    double tmp;
-    double *p1 = reversal1 + 1;
-    double *p2 = reversal2 + 1 + UNIT_SIZE_X2;
-    double *p3 = reversal3 + 1 + UNIT_SIZE_X4;
-    double *end = p2 - UNIT_SIZE_X2;
-    double *output = waveform;
+    float *IIRState1 = iirState1;
+    float *IIRState2 = iirState2;
+    float *IIRState3 = iirState3;
+    memset(IIRState1, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(float));
+    memset(IIRState2, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(float));
+    memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(float));
+    float in = 0;
+    float tmp;
+    float *p1 = reversal;
+    float *p2 = reversal + UNIT_SIZE_X4 + UNIT_SIZE_X2;
+    float *p3 = reversal + 3 * UNIT_SIZE_X4;
+    float *end = p2 - UNIT_SIZE_X2;
+    float *output = waveform;
     int head = UNIT_SIZE - 1 - UNIT_SIZE_X4;//-12289;
     int tail = UNIT_SIZE_X3 - 1 - UNIT_SIZE_X4;//-4097;
     int count = 0;
     int div = DIV;
     while (cnt < (((N + UNIT_SIZE) * div) + UNIT_SIZE) / UNIT_SIZE_X2 * UNIT_SIZE_X2 - UNIT_SIZE / 2)
     {
-        in = cos(2 * PI * f2 * ((double)cnt / Fs) + 3.0 / 4.0 * PI);
+        in = cos(2 * PI * f2 * ((float)cnt / Fs) + 3.0 / 4.0 * PI);
         if (cnt >= 0) {
             int i = (cnt / UNIT_SIZE_X2) * UNIT_SIZE_X2 + UNIT_SIZE_X4 - (cnt % UNIT_SIZE_X2) * 2 - 1;
             int pos = i - UNIT_SIZE;
@@ -442,8 +428,9 @@ int main()
             else {
                 if (pos % div)
                     filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
-                else
+                else {
                     filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &output[pos / div]);
+                }
                 pos--;
                 if (pos % div)
                     filter(NUM_STAGES, iirCoeffs, IIRState1, p1++, &tmp);
@@ -456,19 +443,19 @@ int main()
         filter(NUM_STAGES, iirCoeffs, IIRState2, &in, --p2);
         filter(NUM_STAGES, iirCoeffs, IIRState3, &in, --p3);
         if (p2 == end) {
-            double *tmp = p1;
+            float *tmp = p1;
             p1 = p2;
             p2 = p3;
             p3 = tmp;
 
             end = p2 - UNIT_SIZE_X2;
 
-            double *IIRState = IIRState1;
+            float *IIRState = IIRState1;
             IIRState1 = IIRState2;
             IIRState2 = IIRState3;
             IIRState3 = IIRState;
-            memset(IIRState1, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
-            memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(double));
+            memset(IIRState1, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(float));
+            memset(IIRState3, 0, (4u * (uint32_t)NUM_STAGES)  * sizeof(float));
 
             head += UNIT_SIZE_X2;
             tail += UNIT_SIZE_X2;
@@ -477,8 +464,8 @@ int main()
     }
     std::ofstream ofs("D:\\work\\matlab\\data1.txt");
     for (int i = 0; i < N; i++) {
-        waveform[i] *= 0.20848933281704451 * 0.55580032406388613 * 0.35049729918207673 * 0.13479469724652104 * 0.018759890436406867 * 0.060286089020554802;
-        waveform[i] *= 0.20848933281704451 * 0.55580032406388613 * 0.35049729918207673 * 0.13479469724652104 * 0.018759890436406867 * 0.060286089020554802;
+        waveform[i] *= 0.20854085683822632f * 0.5581631064414978f * 0.3535194993019104f * 0.13628223538398743f * 0.018547529354691505f * 0.0030650508124381304f;
+        waveform[i] *= 0.20854085683822632f * 0.5581631064414978f * 0.3535194993019104f * 0.13628223538398743f * 0.018547529354691505f * 0.0030650508124381304f;
         ofs << waveform[i] << "," << std::endl;
     }
     return 0;
